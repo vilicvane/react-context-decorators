@@ -100,7 +100,9 @@ function pushContext(
   }
 }
 
-export function context(Component: ComponentType): any {
+export function context<TComponentType extends ComponentType<any>>(
+  Component: TComponentType,
+): any {
   if (typeof Component.prototype !== 'object') {
     return Component;
   }
