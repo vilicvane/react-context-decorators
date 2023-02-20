@@ -1,11 +1,11 @@
 {
-  "extends": "@mufan/code-boilerplates/typescript",
+  "boilerplate": "@mufan/code-boilerplates/typescript",
   "options": {
     "name": "react-context-decorators",
     "repository": "https://github.com/vilic/react-context-decorators.git",
     "license": "MIT",
     "author": "vilicvane",
-    "tsProjects": [
+    "projects": [
       {
         "name": "library"
       },

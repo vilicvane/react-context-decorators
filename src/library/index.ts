@@ -105,17 +105,17 @@ export function context(Component: ComponentType): any {
     return Component;
   }
 
-  let contexts = Component.prototype._contexts as
+  const contexts = Component.prototype._contexts as
     | Map<string, Consumer<any>>
     | undefined;
 
   if (contexts) {
-    let OriginalComponent = Component;
+    const OriginalComponent = Component;
 
     Component = forwardRef((props, ref) => {
-      let contextProps: any = {};
+      const contextProps: any = {};
 
-      for (let [key, Context] of contexts!) {
+      for (const [key, Context] of contexts!) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         contextProps[key] = useContext((Context as any)._context || Context);
       }
@@ -137,14 +137,14 @@ export function context(Component: ComponentType): any {
 }
 
 export function applyContextGetters(component: Component): void {
-  let getterMap = (component as any)._contextGetters;
+  const getterMap = (component as any)._contextGetters;
 
   if (!getterMap) {
     console.warn('No context getter added', component);
     return;
   }
 
-  for (let [key, getter] of getterMap) {
+  for (const [key, getter] of getterMap) {
     Object.defineProperty(component, key, {
       get: getter,
     });
