@@ -46,10 +46,9 @@ export function buildUsePropertyDecorator<T extends object>(
   Context: Context<T>,
 ): {
   (): UsePropertyDecorator<T, void>;
-  <TPropertyName extends keyof T>(name: TPropertyName): UsePropertyDecorator<
-    T,
-    TPropertyName
-  >;
+  <TPropertyName extends keyof T>(
+    name: TPropertyName,
+  ): UsePropertyDecorator<T, TPropertyName>;
 };
 export function buildUsePropertyDecorator(
   contextKey: string,
@@ -122,7 +121,6 @@ export function context<TComponentType extends ComponentType<any>>(
         contextProps[key] = useContext((Context as any)._context || Context);
       }
 
-      // eslint-disable-next-line @mufan/no-object-literal-type-assertion
       return createElement(OriginalComponent, {
         ...props,
         _contextProps: contextProps,

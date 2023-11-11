@@ -1,14 +1,23 @@
 {
+  "$schema": "boilerplate.schema.json",
   "boilerplate": "@mufan/code-boilerplates/typescript",
   "options": {
     "name": "react-context-decorators",
     "repository": "https://github.com/vilic/react-context-decorators.git",
     "license": "MIT",
     "author": "vilicvane",
+    "defaultBranch": "main",
+    "packageManager": "yarn",
+    "badges": {
+      "npm": true,
+      "repo": true,
+      "license": true,
+      "discord": "https://discord.gg/vanVrDwSkS"
+    },
+    "type": "module",
     "projects": [
       {
-        "name": "library",
-        "module": ["cjs", "esm"]
+        "name": "library"
       },
       {
         "name": "test",

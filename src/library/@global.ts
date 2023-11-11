@@ -1,2 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-declare const console: any;
+declare global {
+  const console: any;
+}
