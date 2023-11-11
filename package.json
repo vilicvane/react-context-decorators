@@ -1,7 +1,7 @@
 {
   "name": "react-context-decorators",
   "version": "0.0.0",
-  "repository": "https://github.com/vilic/react-context-decorators.git",
+  "repository": "https://github.com/vilicvane/react-context-decorators.git",
   "license": "MIT",
   "author": "vilicvane",
   "type": "module",
