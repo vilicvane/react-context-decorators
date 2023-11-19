@@ -1,120 +1,132 @@
 import hoistStatics from 'hoist-non-react-statics';
 import type {Component, ComponentType, Consumer, Context} from 'react';
-import {createElement, forwardRef, useContext} from 'react';
-import type {KeyOfValueWithType} from 'tslang';
+import {createElement, forwardRef, useContext, useState} from 'react';
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 export type UseDecorator<T> = <TComponent extends Component>(
-  Component: TComponent,
-  key:
-    | KeyOfValueWithType<TComponent, T>
-    | {Error: 'Type of property does not match'},
-) => any;
+  target: ClassAccessorDecoratorTarget<TComponent, T>,
+  context: ClassAccessorDecoratorContext<TComponent, T>,
+) => ClassAccessorDecoratorResult<TComponent, T>;
 
-export function use<T>(Context: Context<T>): UseDecorator<T>;
-export function use<T>(Context: Context<T>): any {
-  return (componentPrototype: object, key: string | symbol) => {
-    pushContext(componentPrototype, key, Context, key, function (this: any) {
-      return this.props._contextProps[key];
+export function use<T>(Context: Context<T>): UseDecorator<T> {
+  return (_target, {name, metadata, addInitializer}) => {
+    pushContext(metadata, name, Context);
+
+    let contextProps: any;
+
+    addInitializer(function () {
+      contextProps = (this.props as any)._contextProps;
     });
+
+    return {
+      get() {
+        return contextProps[name];
+      },
+    };
   };
 }
 
 export type UsePropertyDecorator<
-  T extends object,
-  TPropertyName extends keyof T | void,
-> = <TComponent extends Component>(
-  componentPrototype: TComponent,
-  key: TPropertyName extends string
-    ?
-        | KeyOfValueWithType<TComponent, T[TPropertyName]>
-        | {Error: `Type of property does not match '${TPropertyName}'`}
-    :
-        | {
-            [TKey in keyof T]: TComponent extends {
-              [TComponentKey in TKey]: T[TKey];
-            }
-              ? TKey
-              : never;
-          }[keyof T]
-        | {Error: 'Type of property does not match'},
-) => any;
+  TSource extends object,
+  TPropertyName extends keyof TSource | void,
+> = TPropertyName extends string
+  ? <TComponent extends Component>(
+      target: ClassAccessorDecoratorTarget<TComponent, TSource[TPropertyName]>,
+      context: ClassAccessorDecoratorContext<
+        TComponent,
+        TSource[TPropertyName]
+      >,
+    ) => ClassAccessorDecoratorResult<TComponent, TSource[TPropertyName]>
+  : <
+      TComponent extends Component,
+      TContext extends ClassAccessorDecoratorContext<TComponent>,
+    >(
+      target: ClassAccessorDecoratorTarget<
+        TComponent,
+        TSource[TContext['name'] & keyof TSource]
+      >,
+      context: TContext,
+    ) => ClassAccessorDecoratorResult<
+      TComponent,
+      TSource[TContext['name'] & keyof TSource]
+    >;
+
+export type BuiltUsePropertyDecorator<T extends object> = {
+  (): UsePropertyDecorator<T, void>;
+  <TPropertyNameOverride extends keyof T>(
+    name: TPropertyNameOverride,
+  ): UsePropertyDecorator<T, TPropertyNameOverride>;
+};
 
 export function buildUsePropertyDecorator<T extends object>(
   contextKey: string,
   Context: Context<T>,
-): {
-  (): UsePropertyDecorator<T, void>;
-  <TPropertyName extends keyof T>(
-    name: TPropertyName,
-  ): UsePropertyDecorator<T, TPropertyName>;
-};
+): BuiltUsePropertyDecorator<T>;
 export function buildUsePropertyDecorator(
   contextKey: string,
   Context: Context<object>,
-): (name?: string | symbol) => any {
-  return name => (componentPrototype: object, key: string | symbol) => {
-    pushContext(
-      componentPrototype,
-      contextKey,
-      Context,
-      key,
-      function (this: any) {
-        return this.props._contextProps[contextKey][name ?? key];
-      },
-    );
-  };
+): (
+  nameOverride?: string,
+) => (
+  target: ClassAccessorDecoratorTarget<object, unknown>,
+  context: ClassAccessorDecoratorContext,
+) => ClassAccessorDecoratorResult<object, unknown> {
+  return nameOverride =>
+    (_target, {name: decoratedName, metadata}) => {
+      pushContext(metadata, contextKey, Context);
+
+      const name = nameOverride ?? decoratedName;
+
+      return {
+        get(this: any) {
+          return this.props._contextProps[contextKey][name];
+        },
+      };
+    };
 }
 
 function pushContext(
-  componentPrototype: any,
+  metadata: any,
   key: string | symbol,
   Context: Context<any>,
-  getterKey: string | symbol,
-  getter: () => any,
 ): void {
-  if (hasOwnProperty.call(componentPrototype, '_contexts')) {
-    componentPrototype._contexts.set(key, Context);
+  if (hasOwnProperty.call(metadata, '_contexts')) {
+    metadata._contexts.set(key, Context);
   } else {
-    Object.defineProperty(componentPrototype, '_contexts', {
+    Object.defineProperty(metadata, '_contexts', {
       value: new Map<string | symbol, Context<any>>(
-        componentPrototype._contexts
-          ? [...componentPrototype._contexts, [key, Context]]
+        metadata._contexts
+          ? [...metadata._contexts, [key, Context]]
           : [[key, Context]],
       ),
     });
   }
-
-  if (hasOwnProperty.call(componentPrototype, '_contextGetters')) {
-    componentPrototype._contextGetters.set(getterKey, getter);
-  } else {
-    Object.defineProperty(componentPrototype, '_contextGetters', {
-      value: new Map<string | symbol, () => any>(
-        componentPrototype._contextGetters
-          ? [...componentPrototype._contextGetters, [getterKey, getter]]
-          : [[getterKey, getter]],
-      ),
-    });
-  }
 }
 
-export function context<TComponentType extends ComponentType<any>>(
-  Component: TComponentType,
-): any {
-  if (typeof Component.prototype !== 'object') {
-    return Component;
-  }
-
-  const contexts = Component.prototype._contexts as
+export function context<TComponent extends ComponentType<any>>(
+  Component: TComponent,
+): TComponent {
+  const contexts = (Component[Symbol.metadata] as any)._contexts as
     | Map<string, Consumer<any>>
     | undefined;
 
   if (contexts) {
     const OriginalComponent = Component;
 
+    const contextPropsMap = new WeakMap<object, any>();
+
     Component = forwardRef((props, ref) => {
-      const contextProps: any = {};
+      const instanceKey = useState(() => {
+        return {};
+      });
+
+      let contextProps = contextPropsMap.get(instanceKey);
+
+      if (!contextProps) {
+        contextProps = {};
+        contextPropsMap.set(instanceKey, contextProps);
+      }
 
       for (const [key, Context] of contexts!) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -134,19 +146,4 @@ export function context<TComponentType extends ComponentType<any>>(
   }
 
   return Component;
-}
-
-export function applyContextGetters(component: Component): void {
-  const getterMap = (component as any)._contextGetters;
-
-  if (!getterMap) {
-    console.warn('No context getter added', component);
-    return;
-  }
-
-  for (const [key, getter] of getterMap) {
-    Object.defineProperty(component, key, {
-      get: getter,
-    });
-  }
 }
